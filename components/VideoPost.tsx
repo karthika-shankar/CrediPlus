@@ -22,7 +22,6 @@ interface VideoPostProps {
 }
 
 export default function VideoPost({ video, onDoubleTap }: VideoPostProps) {
-  const [isLiked, setIsLiked] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const videoRef = useRef<Video>(null);
@@ -87,9 +86,14 @@ export default function VideoPost({ video, onDoubleTap }: VideoPostProps) {
 
       <View style={styles.profilePhotoContainer}>
         <Link href={`/artist/${video.artist.id}`} asChild>
-          <TouchableOpacity style={styles.artistContainer}>
-            <Image source={require('../assets/images/image.png')} style={styles.avatar} /> {/* //source={{ uri: video.artist.avatar }} style={styles.avatar}  */}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.artistContainer}>
+              <Image
+                source={require('../assets/images/image.png')}
+                style={styles.avatar}
+              />
+            </TouchableOpacity>
+          </>
         </Link>
       </View>
     </View>
