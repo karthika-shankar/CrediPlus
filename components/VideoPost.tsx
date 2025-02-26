@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
+// VideoPost.tsx
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, StyleSheet, Image, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,85 +16,124 @@ interface Artist {
 interface VideoPostProps {
   video: {
     id: string;
-    url: string;
+    url: any; // Use require(…) for local assets or a URL object for remote videos
     artist: Artist;
   };
   onDoubleTap: () => void;
+  isActive: boolean;
 }
 
-export default function VideoPost({ video, onDoubleTap }: VideoPostProps) {
+export default function VideoPost({ video, onDoubleTap, isActive }: VideoPostProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(true);
   const videoRef = useRef<Video>(null);
+  const lastTapRef = useRef<number>(0);
+  const isLongPressing = useRef<boolean>(false);
+  const [userInteracted, setUserInteracted] = useState(false);
 
-  const handleSingleTap = () => {
-    setIsMuted(!isMuted);
+  // Handle screen focus changes
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.pauseAsync();
+          setIsPlaying(false);
+          setUserInteracted(false);
+        }
+      };
+    }, [])
+  );
+
+  // Modified isActive effect to respect user interactions
+  useEffect(() => {
+    if (videoRef.current && !userInteracted) {
+      if (isActive) {
+        videoRef.current.playAsync();
+        setIsPlaying(true);
+      } else {
+        videoRef.current.pauseAsync();
+        setIsPlaying(false);
+      }
+    }
+  }, [isActive]);
+
+  const handlePress = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // ms
+    
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected
+      onDoubleTap();
+      lastTapRef.current = 0;
+    } else {
+      // Single tap - ONLY toggle mute, don't affect playback
+      if (!isLongPressing.current) {
+        setIsMuted((prev) => {
+          const newMuted = !prev;
+          if (videoRef.current) {
+            // Just update the mute status, don't change playback state
+            videoRef.current.setStatusAsync({ isMuted: newMuted });
+          }
+          return newMuted;
+        });
+      }
+      lastTapRef.current = now;
+    }
   };
 
+  // Modified long press handler
   const handleLongPress = () => {
-    if (isPlaying) {
-      videoRef.current?.pauseAsync();
+    isLongPressing.current = true;
+    setUserInteracted(true);
+    if (isPlaying && videoRef.current) {
+      videoRef.current.pauseAsync();
       setIsPlaying(false);
     }
   };
 
+  // Modified press out handler
   const handlePressOut = () => {
-    if (!isPlaying) {
-      videoRef.current?.playAsync();
-      setIsPlaying(true);
+    if (isLongPressing.current) {
+      isLongPressing.current = false;
+      if (!isPlaying && videoRef.current && isActive) {
+        videoRef.current.playAsync();
+        setIsPlaying(true);
+        setUserInteracted(false); // Reset user interaction when resuming
+      }
     }
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.videoWrapper}
-        onPress={handleSingleTap}
+      <TouchableWithoutFeedback
+        onPress={handlePress}
         onLongPress={handleLongPress}
         onPressOut={handlePressOut}
-        onDoubleTap={onDoubleTap}
-        activeOpacity={1}>
-        <Video
-          ref={videoRef}
-          source={require('../assets/videos/sample_1.mp4')} // source={{ uri: video.url }}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-          isLooping
-          shouldPlay
-          isMuted={isMuted}
-        />
-      </TouchableOpacity>
-
-      {/*
-      <View style={styles.overlay}>
-        <View style={styles.rightControls}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setIsLiked(!isLiked)}>
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={30}
-              color={isLiked ? '#ff2d55' : '#fff'}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={30} color="#fff" />
-          </TouchableOpacity>
+        delayLongPress={500}
+      >
+        <View style={styles.videoWrapper}>
+          <Video
+            ref={videoRef}
+            source={video.url}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+            isLooping
+            shouldPlay={false} // Playback is controlled via isActive
+            isMuted={isMuted}
+          />
+          {/* Overlay border */}
+          <View style={styles.borderOverlay} pointerEvents="none" />
         </View>
-      </View>
-      */}
-
+      </TouchableWithoutFeedback>
+      
       <View style={styles.profilePhotoContainer}>
         <Link href={`/artist/${video.artist.id}`} asChild>
-          <>
-            <TouchableOpacity style={styles.artistContainer}>
-              <Image
-                source={require('../assets/images/image.png')}
-                style={styles.avatar}
-              />
-            </TouchableOpacity>
-          </>
+          <View style={styles.artistContainer}>
+            <Image
+              source={video.artist.avatar}
+              style={styles.avatar}
+            />
+          </View>
         </Link>
       </View>
     </View>
@@ -106,36 +146,26 @@ const styles = StyleSheet.create({
   },
   videoWrapper: {
     flex: 1,
+    borderRadius: 50,
+    overflow: 'hidden',
   },
-  video: {
-    flex: 1,
-  },
-  overlay: {
+  // The border overlay is absolutely positioned to cover the entire video area.
+  borderOverlay: {
     ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    padding: 20,
-  },
-  rightControls: {
-    position: 'absolute',
-    right: 10,
-    bottom: 200,
-    alignItems: 'center',
-    gap: 20,
-  },
-  actionButton: {
-    alignItems: 'center',
-    gap: 10,
+    borderWidth: 10,
+    borderColor: '#fff', // Adjust color as desired
+    borderRadius: 50,    // Ensure it matches videoWrapper radius
   },
   profilePhotoContainer: {
     position: 'absolute',
-    bottom: 70, // Adjust this value to position the profile photo above the home tab
+    bottom: 115,
     left: '44.7%',
-    transform: [{ translateX: -25 }], // Adjust this value based on the width of the profile photo
+    transform: [{ translateX: -25 }],
     alignItems: 'center',
+    zIndex: 2,
   },
   artistContainer: {
     alignItems: 'center',
-    gap: 10,
   },
   avatar: {
     width: 85,
