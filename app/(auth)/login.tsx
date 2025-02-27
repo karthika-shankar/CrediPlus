@@ -1,19 +1,44 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { signInWithEmail } from '../../src/lib/auth';
 
 export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { data, error } = await signInWithEmail(email, password);
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to sign in');
+        return;
+      }
+      
+      if (data) {
+        router.replace('/(tabs)');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = () => {
     // Will implement Google Sign In later
     console.log('Google Sign In pressed');
-  };
-
-  const handlePhoneSignIn = () => {
-    // Will implement Phone Sign In later
-    console.log('Phone Sign In pressed with:', phoneNumber);
   };
 
   return (
@@ -33,20 +58,51 @@ export default function Login() {
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
-          <Ionicons name="call" size={20} color="#666" style={styles.inputIcon} />
+          <Ionicons name="mail" size={20} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Enter your phone number"
+            placeholder="Enter your email"
             placeholderTextColor="#666"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
         </View>
 
-        <TouchableOpacity style={styles.phoneButton} onPress={handlePhoneSignIn}>
-          <Ionicons name="phone-portrait" size={24} color="white" />
-          <Text style={styles.buttonText}>Continue with Phone</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed" size={20} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your password"
+            placeholderTextColor="#666"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons 
+              name={showPassword ? "eye-off" : "eye"} 
+              size={20} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.phoneButton} 
+          onPress={handleSignIn}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="log-in" size={24} color="white" />
+              <Text style={styles.buttonText}>Sign In</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <View style={styles.divider}>

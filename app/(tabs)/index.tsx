@@ -45,7 +45,6 @@ export default function HomeScreen() {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
       <FlatList
         data={videos}
         renderItem={({ item, index }) => (

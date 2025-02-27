@@ -1,15 +1,50 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { signUpWithEmail } from '../../src/lib/auth';
 
 export default function SignUp() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSignUp = () => {
-    // Will implement sign up logic later
-    console.log('Sign up pressed with:', { name, phoneNumber });
+  const handleSignUp = async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { data, error } = await signUpWithEmail(email, password, name, phoneNumber);
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to sign up');
+        return;
+      }
+      
+      if (data) {
+        Alert.alert(
+          'Success', 
+          'Account created successfully! Please sign in.',
+          [{ text: 'OK', onPress: () => router.replace('/login') }]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -40,10 +75,23 @@ export default function SignUp() {
         </View>
 
         <View style={styles.inputContainer}>
+          <Ionicons name="mail" size={20} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your email"
+            placeholderTextColor="#666"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
           <Ionicons name="call" size={20} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Enter your phone number"
+            placeholder="Enter your phone number (optional)"
             placeholderTextColor="#666"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
@@ -51,8 +99,49 @@ export default function SignUp() {
           />
         </View>
 
-        <TouchableOpacity style={styles.signupButton} onPress={handleSignUp}>
-          <Text style={styles.buttonText}>Create Account</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed" size={20} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Create a password"
+            placeholderTextColor="#666"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons 
+              name={showPassword ? "eye-off" : "eye"} 
+              size={20} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed" size={20} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm password"
+            placeholderTextColor="#666"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <TouchableOpacity 
+          style={styles.signupButton} 
+          onPress={handleSignUp}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Create Account</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.loginContainer}>
